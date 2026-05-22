@@ -1,0 +1,83 @@
+name: Build Android App
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: hqhelper/package-lock.json
+
+      - name: Build Vue3 Submodule Project
+        run: |
+          cd hqhelper
+          npm install
+          npm run build
+
+      - name: Copy built assets to Android Assets directory
+        run: |
+          mkdir -p app/src/main/assets/www
+          rm -rf app/src/main/assets/www/*
+          if [ -d "hqhelper/dist" ]; then
+            cp -r hqhelper/dist/* app/src/main/assets/www/
+          elif [ -d "hqhelper/build" ]; then
+            cp -r hqhelper/build/* app/src/main/assets/www/
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > my-upload-key.jks
+
+      - name: Build Release APK
+        env:
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          gradle wrapper
+          ./gradlew assembleRelease
+
+      - name: Rename APK
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk HqHelper.apk
+
+      - name: Upload Built APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HqHelper
+          path: HqHelper.apk
+
+      - name: Get short SHA
+        id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.sha.outputs.short }}
+          name: Build ${{ steps.sha.outputs.short }}
+          files: HqHelper.apk
+          generate_release_notes: true

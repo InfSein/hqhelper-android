@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">HqHelper</string>
+    <string name="update_dialog_title">Update Available</string>
+    <string name="update_dialog_message">A new version (%1$s) of HqHelper is available. Would you like to download and install it?</string>
+    <string name="update_confirm">Update Now</string>
+    <string name="update_cancel">Later</string>
+    <string name="status_already_latest">You are already on the latest version.</string>
+    <string name="status_checking">Checking for updates...</string>
+    <string name="status_downloading">Downloading update %1$.1f%%...</string>
+    <string name="status_extracting">Extracting update files...</string>
+    <string name="status_success">Update applied! Reloading...</string>
+    <string name="status_error">Update failed: %1$s</string>
+    <string name="initializing_app">Initializing application resources...</string>
+</resources>
+
