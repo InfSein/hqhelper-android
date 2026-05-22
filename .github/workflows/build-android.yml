@@ -39,6 +39,14 @@ jobs:
             cp -r hqhelper/dist/* app/src/main/assets/www/
           elif [ -d "hqhelper/build" ]; then
             cp -r hqhelper/build/* app/src/main/assets/www/
+          else
+            echo "Error: Neither hqhelper/dist nor hqhelper/build found!"
+            exit 1
+          fi
+          # Verify that index.html was copied
+          if [ ! -f "app/src/main/assets/www/index.html" ]; then
+            echo "Error: index.html not found in assets directory after copy!"
+            exit 1
           fi
 
       - name: Set up JDK 17

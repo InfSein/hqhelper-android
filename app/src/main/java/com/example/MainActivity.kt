@@ -74,6 +74,7 @@ class MainActivity : ComponentActivity() {
     private var showUpToDatePrompt by mutableStateOf(false)
     private var showConfirmDialog by mutableStateOf(false)
     private var isAssetsReady by mutableStateOf(false)
+    private var isAppUpdate by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,8 +84,31 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             val destDir = File(filesDir, "www")
             val indexFile = File(destDir, "index.html")
-            if (!indexFile.exists()) {
+
+            val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+            val lastVersionCode = prefs.getLong("last_version_code", -1L)
+            val currentVersionCode = try {
+                val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    packageManager.getPackageInfo(packageName, 0)
+                } else {
+                    packageManager.getPackageInfo(packageName, 0)
+                }
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    packageInfo.longVersionCode
+                } else {
+                    @Suppress("DEPRECATION")
+                    packageInfo.versionCode.toLong()
+                }
+            } catch (e: Exception) {
+                0L
+            }
+
+            if (currentVersionCode != lastVersionCode || !indexFile.exists() || !indexFile.isFile) {
+                if (destDir.exists()) {
+                    destDir.deleteRecursively()
+                }
                 copyAssetFolder(this@MainActivity, "www", destDir)
+                prefs.edit().putLong("last_version_code", currentVersionCode).apply()
             }
 
             readLocalVersion()
@@ -154,6 +178,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun getAppVersionName(): String {
+        return try {
+            val packageInfo = packageManager.getPackageInfo(packageName, 0)
+            packageInfo.versionName ?: "0.0.0"
+        } catch (e: Exception) {
+            "0.0.0"
+        }
+    }
+
     fun checkForUpdates(silentOnUpToDate: Boolean) {
         if (appState != AppState.IDLE) return
         appState = AppState.CHECKING
@@ -189,6 +222,24 @@ class MainActivity : ComponentActivity() {
                 try {
                     val responseStr = response.body?.string() ?: ""
                     val json = JSONObject(responseStr)
+
+                    // 1. Check for App update first
+                    val remoteAppVersion = json.optString("android", "")
+                    val currentAppVersion = getAppVersionName()
+                    if (remoteAppVersion.isNotEmpty() && remoteAppVersion != currentAppVersion) {
+                        runOnUiThread {
+                            isAppUpdate = true
+                            updateVersion = remoteAppVersion
+                            val dlinkAndroid = json.optString("dlink_android", "")
+                            val clientInfo = json.optJSONObject("client_info")
+                            val recommProxy = clientInfo?.optString("recomm_proxy", "") ?: ""
+                            updateUrl = dlinkAndroid.replace("~PROXY", recommProxy)
+                            showConfirmDialog = true
+                        }
+                        return
+                    }
+
+                    // 2. Fallback to hqhelper update
                     val remoteVersion = json.getString("hqhelper")
                     val dlinkHqHelper = json.getString("dlink_hqhelper")
 
@@ -199,6 +250,7 @@ class MainActivity : ComponentActivity() {
                         readLocalVersion()
 
                         if (remoteVersion != currentLocalVersion) {
+                            isAppUpdate = false
                             updateVersion = remoteVersion
                             var url = dlinkHqHelper.replace("~VERSION", remoteVersion)
                             url = url.replace("~PROXY", recommProxy)
@@ -258,11 +310,12 @@ class MainActivity : ComponentActivity() {
 
                 try {
                     val totalBytes = body.contentLength()
-                    val tempZipFile = File(cacheDir, "update.zip")
+                    val suffix = if (isAppUpdate) "apk" else "zip"
+                    val tempFile = File(cacheDir, "update.$suffix")
 
                     var bytesCopied = 0L
                     body.byteStream().use { input ->
-                        tempZipFile.outputStream().use { output ->
+                        tempFile.outputStream().use { output ->
                             val buffer = ByteArray(8192)
                             var bytes = input.read(buffer)
                             while (bytes >= 0) {
@@ -276,6 +329,14 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    if (isAppUpdate) {
+                        runOnUiThread {
+                            appState = AppState.IDLE
+                            installApk(tempFile)
+                        }
+                        return
+                    }
+
                     // Done downloading, change status to extracting
                     runOnUiThread {
                         appState = AppState.EXTRACTING
@@ -286,7 +347,7 @@ class MainActivity : ComponentActivity() {
                     if (tempExtractDir.exists()) tempExtractDir.deleteRecursively()
                     tempExtractDir.mkdirs()
 
-                    unzip(tempZipFile, tempExtractDir)
+                    unzip(tempFile, tempExtractDir)
 
                     val webRootDir = findDirectoryContainingIndex(tempExtractDir) ?: tempExtractDir
 
@@ -302,7 +363,7 @@ class MainActivity : ComponentActivity() {
                     localVersionJson.writeText("{\"hqhelper\":\"$updateVersion\"}")
 
                     // Cleanup
-                    tempZipFile.delete()
+                    tempFile.delete()
                     tempExtractDir.deleteRecursively()
 
                     runOnUiThread {
@@ -408,6 +469,25 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             )
+        }
+    }
+
+    private fun installApk(file: File) {
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                this,
+                "$packageName.fileprovider",
+                file
+            )
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            showErrorDialog = "Failed to open APK: ${e.localizedMessage}"
         }
     }
 }
@@ -546,7 +626,6 @@ private fun copyDirectory(source: File, destination: File) {
 }
 
 private fun copyAssetFolder(context: Context, srcFolder: String, destFolder: File) {
-    destFolder.mkdirs()
     val assets: Array<String>?
     try {
         assets = context.assets.list(srcFolder)
@@ -562,9 +641,11 @@ private fun copyAssetFolder(context: Context, srcFolder: String, destFolder: Fil
                 }
             }
         } catch (e: IOException) {
-            // empty directory or error
+            // Might be an empty directory or just not a file we can open
+            destFolder.mkdirs()
         }
     } else {
+        destFolder.mkdirs()
         for (asset in assets) {
             val srcAssetPath = if (srcFolder.isEmpty()) asset else "$srcFolder/$asset"
             val destAssetFile = File(destFolder, asset)
