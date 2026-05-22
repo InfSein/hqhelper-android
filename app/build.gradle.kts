@@ -15,7 +15,7 @@ android {
     minSdk = 24
     targetSdk = 36
     versionCode = 1 // 版本serial
-    versionName = "v1.test1" // 版本显示的名称
+    versionName = "v1" // 版本显示的名称
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
