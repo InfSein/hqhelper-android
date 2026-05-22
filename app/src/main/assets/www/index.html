@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>HqHelper</title>
+    <style>
+      body {
+        background-color: #121214;
+        color: #ffffff;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        padding: 20px;
+        box-sizing: border-box;
+        text-align: center;
+      }
+      .logo {
+        font-size: 48px;
+        font-weight: bold;
+        letter-spacing: 2px;
+        margin-bottom: 24px;
+        background: linear-gradient(135deg, #a78bfa, #6366f1);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .spinner {
+        width: 48px;
+        height: 48px;
+        border: 4px solid rgba(255, 255, 255, 0.1);
+        border-top-color: #6366f1;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 24px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      p {
+        color: #9ca3af;
+        font-size: 16px;
+        line-height: 1.5;
+        max-width: 300px;
+      }
+      .btn-check {
+        background: #6366f1;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-top: 16px;
+        transition: background 0.2s;
+      }
+      .btn-check:hover {
+        background: #4f46e5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="logo">HqHelper</div>
+    <div class="spinner"></div>
+    <p id="status-text">正在初始化应用资源...</p>
+    <button class="btn-check" onclick="checkUpdateManual()">检查更新</button>
+
+    <script>
+      const lang = navigator.language || navigator.userLanguage
+      const statusEl = document.getElementById('status-text')
+      if (lang.startsWith('ja')) {
+        statusEl.innerText = 'リソースを初期化中...'
+      } else if (lang.startsWith('zh')) {
+        statusEl.innerText = '正在初始化应用资源...'
+      } else {
+        statusEl.innerText = 'Initializing application resources...'
+      }
+
+      function checkUpdateManual() {
+        if (window.androidAPI && window.androidAPI.checkUpdate) {
+          window.androidAPI.checkUpdate()
+        } else {
+          alert('androidAPI is not available')
+        }
+      }
+
+      setTimeout(() => {
+        if (window.androidAPI && window.androidAPI.checkUpdate) {
+          window.androidAPI.checkUpdate()
+        }
+      }, 1500)
+    </script>
+  </body>
+</html>

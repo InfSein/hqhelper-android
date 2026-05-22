@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HqHelper</string>
+    <string name="update_dialog_title">アップデートのご案内</string>
+    <string name="update_dialog_message">HqHelper の新しいバージョン (%1$s) が利用可能です。ダウンロードして更新しますか？</string>
+    <string name="update_confirm">今すぐ更新</string>
+    <string name="update_cancel">後で</string>
+    <string name="status_already_latest">すでに最新バージョンを使用しています。</string>
+    <string name="status_checking">アップデートをチェック中...</string>
+    <string name="status_downloading">アップデートをダウンロード中 %1$.1f%%...</string>
+    <string name="status_extracting">ファイルを展開中...</string>
+    <string name="status_success">アップデートが完了しました！リロード中...</string>
+    <string name="status_error">アップデートに失敗しました: %1$s</string>
+    <string name="initializing_app">リソースを初期化中...</string>
+</resources>

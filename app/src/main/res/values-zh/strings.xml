@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HqHelper</string>
+    <string name="update_dialog_title">发现新版本</string>
+    <string name="update_dialog_message">检测到 HqHelper 新版本 (%1$s)。是否立即下载并更新？</string>
+    <string name="update_confirm">立即更新</string>
+    <string name="update_cancel">稍后</string>
+    <string name="status_already_latest">当前已是最新版本。</string>
+    <string name="status_checking">正在检查更新...</string>
+    <string name="status_downloading">正在下载更新 %1$.1f%%...</string>
+    <string name="status_extracting">正在解压文件...</string>
+    <string name="status_success">更新成功！重新加载中...</string>
+    <string name="status_error">更新失败: %1$s</string>
+    <string name="initializing_app">正在初始化应用资源和页面...</string>
+</resources>
