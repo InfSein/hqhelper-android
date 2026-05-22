@@ -1,57 +1,76 @@
-name: Update Submodule
+name: Update Submodule and Auto Merge PR
 
 on:
   repository_dispatch:
     types: [update-submodule]
-  workflow_dispatch:
-
-permissions:
-  contents: write
-  pull-requests: write
 
 jobs:
   update-submodule:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure Git
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Update submodule
         run: |
-          git submodule update --init --recursive --remote hqhelper
+          git submodule update --remote hqhelper
+          git add hqhelper
 
-      - name: Check for changes
-        id: git-check
+      - name: Check for submodule changes
+        id: check_changes
         run: |
-          if git diff --quiet && git diff --cached --quiet; then
-            echo "changes=false" >> $GITHUB_OUTPUT
+          if git diff --cached --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
           else
-            echo "changes=true" >> $GITHUB_OUTPUT
+            echo "changed=true" >> $GITHUB_OUTPUT
           fi
 
+      - name: Exit if no submodule changes
+        if: steps.check_changes.outputs.changed == 'false'
+        run: |
+          echo "No submodule update, exiting."
+          exit 0
+
+      - name: Commit submodule update
+        run: |
+          git commit -m "chore: update hqhelper submodule to latest"
+
       - name: Create Pull Request
-        if: steps.git-check.outputs.changes == 'true'
         id: cpr
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: update hqhelper submodule"
+          token: ${{ secrets.ACTIONS_PAT }}
+          commit-message: "chore: update hqhelper submodule to latest"
           title: "chore: update hqhelper submodule"
-          body: "Auto-generated pull request to update the hqhelper submodule."
-          branch: "update-submodule-branch"
+          body: "Auto-generated PR to update hqhelper submodule to latest commit on master."
+          branch: update-submodule-${{ github.run_id }}
           delete-branch: true
 
-      - name: Auto-merge PR
-        if: steps.git-check.outputs.changes == 'true' && steps.cpr.outputs.pull-request-number != ''
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Enable auto-merge
+        if: steps.cpr.outputs.pull-request-url != ''
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.ACTIONS_PAT }}
+          pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
+          merge-method: squash
+
+      - name: Delete branch
+        if: steps.cpr.outputs.pull-request-merged == 'true'
         run: |
-          gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --merge --delete-branch
+          gh api \
+            -X DELETE \
+            repos/${{ github.repository }}/git/refs/heads/update-submodule-${{ github.run_id }}
+        env:
+          GH_TOKEN: ${{ secrets.ACTIONS_PAT }}
